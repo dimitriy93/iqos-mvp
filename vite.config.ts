@@ -4,6 +4,7 @@ import * as path from "node:path";
 
 export default defineConfig({
   plugins: [react()],
+  base: '/iqos-mvp/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
