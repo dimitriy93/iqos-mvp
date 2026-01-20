@@ -1,0 +1,26 @@
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background-color: #ffffff;
+    border-top: 1px solid #e6e6e6;
+}
+
+.bottom-nav__item {
+    text-decoration: none;
+    color: #6f6f6f;
+    font-size: 12px;
+}
+
+.bottom-nav__item.active {
+    color: #34303d;
+}
+
+.bottom-nav__label {
+    display: block;
+}

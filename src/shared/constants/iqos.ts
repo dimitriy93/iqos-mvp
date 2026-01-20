@@ -1,0 +1,1 @@
+export const IQOS_CATALOG_CATEGORY_ID: string = '369';

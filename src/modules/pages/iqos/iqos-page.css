@@ -1,0 +1,37 @@
+.iqos-page {
+    padding: 16px 0;
+}
+
+.iqos-page__title {
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    color: #1c1c1c;
+}
+
+.iqos-page__categories {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.iqos-page__category {
+    padding: 12px 20px;
+    border-radius: 24px;
+    border: 1px solid #e6e6e6;
+    background-color: #ffffff;
+    color: #1c1c1c;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.iqos-page__category:hover {
+    background-color: #f5f5f5;
+}
+
+.iqos-page__category--active {
+    border-color: #34303d;
+    background-color: #f0f0f0;
+}
