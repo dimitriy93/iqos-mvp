@@ -4,7 +4,7 @@ import {AppRoutes} from "./routes/AppRoutes.tsx";
 
 function App() {
   return (
-      <BrowserRouter>
+      <BrowserRouter basename="/iqos-mvp">
           <AppLayout>
               <AppRoutes />
           </AppLayout>

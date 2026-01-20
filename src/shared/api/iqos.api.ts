@@ -1,14 +1,27 @@
 import type {IqosCategory, IqosProduct} from "@/shared/types/iqos.ts";
+import {LOCAL_FEED_URL, REMOTE_FEED_URL} from "@/shared/constants/iqos.ts";
 
+async function fetchXML(url:string): Promise<Response> {
+    const res = await fetch(url);
+
+    if (!res.ok) {
+        throw new Error('Ошибка загрузки');
+    }
+
+    return res;
+}
 export async function fetchIqosFeed(): Promise<{
     categories: IqosCategory[];
     products: IqosProduct[];
 }> {
-    const IQOS_FEED_URL = import.meta.env.DEV
-        ? '/api/mindbox_feed.xml'
-        : import.meta.env.VITE_API_URL;
+    let res: Response;
 
-    const res = await fetch(IQOS_FEED_URL);
+    try {
+        res = await fetchXML(LOCAL_FEED_URL);
+    } catch {
+        res = await fetchXML(REMOTE_FEED_URL);
+    }
+
     if (!res.ok) {
         throw new Error('Ошибка загрузки');
     }
