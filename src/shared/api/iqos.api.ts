@@ -4,7 +4,11 @@ export async function fetchIqosFeed(): Promise<{
     categories: IqosCategory[];
     products: IqosProduct[];
 }> {
-    const res = await fetch(`/api/mindbox_feed.xml`);
+    const IQOS_FEED_URL = import.meta.env.DEV
+        ? '/api/mindbox_feed.xml'
+        : import.meta.env.VITE_API_URL;
+
+    const res = await fetch(IQOS_FEED_URL);
     if (!res.ok) {
         throw new Error('Ошибка загрузки');
     }
