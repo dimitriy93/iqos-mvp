@@ -41,5 +41,5 @@
     left: 0;
     right: 0;
     height: 2px;
-    background-color: #34303d;
+    background-color: var(--color-iqos-primary);
 }

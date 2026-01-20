@@ -6,7 +6,7 @@
 }
 
 .iqos-product-card {
-    border: 2px solid #00d1d2;
+    border: 2px solid var(--color-iqos-primary);
     border-radius: 12px;
     background-color: #fff;
     padding: 12px;
@@ -51,5 +51,5 @@
 .iqos-product-card__price {
     font-size: 16px;
     font-weight: 600;
-    color: #00d1d2;
+    color: var(--color-iqos-primary);
 }
