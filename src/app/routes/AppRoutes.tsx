@@ -1,6 +1,8 @@
 import {Navigate, Route, Routes} from "react-router-dom";
 import {IqosPage} from "@/modules/pages/iqos";
-import {BluetoothPage} from "@/modules/pages/bluetooth";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-expect-error
+import {BluetoothPage} from "@/modules/pages/bluetooth/index.jsx";
 import {UsbPage} from "@/modules/pages/usb";
 
 export const AppRoutes = () => {
