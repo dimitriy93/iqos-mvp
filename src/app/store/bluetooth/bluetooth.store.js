@@ -11,7 +11,8 @@ class BluetoothStore {
 
     serviceUuids = [
         '58361e6d-e579-1df8-8997-50aa66a3add0',
-        '664578b6-c390-42d8-956e-c1ae8b646436'
+        '664578b6-c390-42d8-956e-c1ae8b646436',
+        'daebb240-b041-11e4-9e45-0002a5d5c51b',
     ];
 
     constructor() {
