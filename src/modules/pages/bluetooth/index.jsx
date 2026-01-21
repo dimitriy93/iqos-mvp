@@ -1,6 +1,5 @@
 import { observer } from 'mobx-react-lite';
 import {bluetoothStore} from "@/app/store/bluetooth/bluetooth.store.js";
-import "./bluetooth-page.css"
 
 export const BluetoothPage = observer(() => {
     const {
@@ -53,7 +52,7 @@ export const BluetoothPage = observer(() => {
                 <div className="card-body">
                     <div className="d-flex flex-wrap gap-3 mb-4">
                         <button
-                            className="btn btn-primary"
+                            className="iqos-btn-primary"
                             onClick={handleConnect}
                             disabled={isLoading || !isBluetoothSupported}
                         >
@@ -120,7 +119,6 @@ export const BluetoothPage = observer(() => {
             </div>
 
             {characteristics.length > 0 && (
-                // <BluetoothCard characteristics={characteristics} readingValues={readingValues} handleReadCharacteristic={handleReadCharacteristic}/>
                 <div className="card">
                     <div className="card-header bg-info text-white d-flex justify-content-between align-items-center">
                         <h5 className="mb-0">Характеристики устройства</h5>

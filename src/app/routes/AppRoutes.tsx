@@ -3,7 +3,9 @@ import {IqosPage} from "@/modules/pages/iqos";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-expect-error
 import {BluetoothPage} from "@/modules/pages/bluetooth/index.jsx";
-import {UsbPage} from "@/modules/pages/usb";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-expect-error
+import {UsbPage} from "@/modules/pages/usb/index.jsx";
 
 export const AppRoutes = () => {
     return (
