@@ -1,117 +1,89 @@
-import {makeAutoObservable, runInAction} from "mobx";
+import { makeAutoObservable, runInAction } from "mobx";
 
 class BluetoothStore {
     device = null;
     server = null;
+    service = null;
     characteristics = [];
-    deviceInfo = null;
+    permittedDevices = [];
+    isConnected = false;
     isLoading = false;
     error = null;
-    readingValues = {};
-    isConnected = false;
-
-    serviceUuids = [
-        '58361e6d-e579-1df8-8997-50aa66a3add0',
-        '664578b6-c390-42d8-956e-c1ae8b646436',
-        'daebb240-b041-11e4-9e45-0002a5d5c51b',
-    ];
+    serviceUUID = "daebb240-b041-11e4-9e45-0002a5d5c51b";
 
     constructor() {
         makeAutoObservable(this);
+
+        this.isBluetoothSupported = !!navigator.bluetooth;
     }
 
-    get isBluetoothSupported() {
-        return !!navigator.bluetooth;
+    setError(message) {
+        this.error = message;
     }
 
-    decodeBuffer(buffer, encoding = 'utf-8') {
+    clearError() {
+        this.error = null;
+    }
+
+    resetState() {
+        this.device = null;
+        this.server = null;
+        this.service = null;
+        this.characteristics = [];
+        this.isConnected = false;
+    }
+
+    async loadPermittedDevices() {
+        if (!this.isBluetoothSupported) return;
+
         try {
-            if (!buffer || buffer.byteLength === 0) {
-                return 'Пустое значение';
-            }
-            return new TextDecoder(encoding).decode(buffer);
-        } catch (err) {
-            return `Ошибка декодирования: ${err.message}`;
+            const devices = await navigator.bluetooth.getDevices();
+
+            runInAction(() => {
+                this.permittedDevices = devices;
+            });
+        } catch (e) {
+            console.error("getDevices error:", e);
+        }
+    }
+
+    async forgetDevice(deviceId) {
+        try {
+            const devices = await navigator.bluetooth.getDevices();
+            const device = devices.find(d => d.id === deviceId);
+
+            if (!device) return;
+
+            await device.forget();
+            await this.loadPermittedDevices();
+        } catch (e) {
+            console.error("forgetDevice error:", e);
         }
     }
 
     async requestDevice() {
         if (!this.isBluetoothSupported) {
-            runInAction(() => {
-                this.error = 'Web Bluetooth API не поддерживается';
-            });
+            this.setError("Web Bluetooth API не поддерживается");
             return;
         }
+
+        this.isLoading = true;
+        this.clearError();
 
         try {
             const device = await navigator.bluetooth.requestDevice({
-                acceptAllDevices: true
+                acceptAllDevices: true,
+                optionalServices: [this.serviceUUID]
             });
 
             runInAction(() => {
                 this.device = device;
-                this.deviceInfo = {
-                    id: device.id,
-                    name: device.name
-                };
             });
 
-        } catch (err) {
+            await this.loadPermittedDevices();
+        } catch (e) {
             runInAction(() => {
-                this.error = `Ошибка выбора устройства: ${err.message}`;
-            });
-        }
-    }
-
-    async connectDevice() {
-        if (!this.isBluetoothSupported) {
-            runInAction(() => {
-                this.error = 'Web Bluetooth API не поддерживается вашим браузером';
-            });
-            return;
-        }
-
-        runInAction(() => {
-            this.isLoading = true;
-            this.error = null;
-            this.characteristics = [];
-            this.deviceInfo = null;
-            this.readingValues = {};
-        });
-
-        try {
-            const devices = await navigator.bluetooth.getDevices();
-            const device = devices.find(d => d.id === this.deviceInfo.id);
-
-            if (!device) {
-                throw new Error('Устройство не найдено среди разрешённых');
-            }
-
-            const server = await device.gatt.connect();
-
-            runInAction(() => {
-                this.device = device;
-                this.server = server;
-                this.isConnected = true;
-            });
-
-            for (const uuid of this.serviceUuids) {
-                try {
-                    const service = await server.getPrimaryService(uuid);
-                    const chars = await service.getCharacteristics();
-
-                    runInAction(() => {
-                        this.characteristics.push(...chars);
-                    });
-
-                } catch {
-                }
-            }
-
-        } catch (err) {
-            runInAction(() => {
-                this.error = `Ошибка подключения: ${err.message}`;
-                this.isConnected = false;
+                this.error = e.message;
             });
         } finally {
             runInAction(() => {
@@ -120,58 +92,64 @@ class BluetoothStore {
         }
     }
 
-    disconnectDevice() {
-        if (this.device?.gatt?.connected) {
-            this.device.gatt.disconnect();
-        }
-
-        runInAction(() => {
-            this.device = null;
-            this.server = null;
-            this.characteristics = [];
-            this.readingValues = {};
-            this.isConnected = false;
-        });
-    }
-
-    async readCharacteristic(characteristic, index) {
-        if (!characteristic.properties.read) {
-            runInAction(() => {
-                this.readingValues[index] = 'Чтение не поддерживается';
-            });
+    async connect(device) {
+        if (!device) {
+            this.setError("Устройство не выбрано");
             return;
         }
 
-        runInAction(() => {
-            this.readingValues[index] = 'Чтение...';
-        });
+        this.isLoading = true;
+        this.clearError();
+
+        try {
+            const server = await device.gatt.connect();
+            const service = await server.getPrimaryService(this.serviceUUID);
+            const characteristics = await service.getCharacteristics();
+
+            runInAction(() => {
+                this.device = device;
+                this.server = server;
+                this.service = service;
+                this.characteristics = characteristics;
+                this.isConnected = true;
+            });
+
+            device.addEventListener("gattserverdisconnected", () => {
+                runInAction(() => {
+                    this.resetState();
+                });
+            });
+        } catch (e) {
+            runInAction(() => {
+                this.error = e.message;
+            });
+        } finally {
+            runInAction(() => {
+                this.isLoading = false;
+            });
+        }
+    }
+
+    async readCharacteristic(characteristic) {
+        if (!characteristic || !characteristic.properties.read) {
+            return null;
+        }
 
         try {
             const value = await characteristic.readValue();
-            const decoded = this.decodeBuffer(value);
-
-            runInAction(() => {
-                this.readingValues[index] = decoded;
-            });
-
-        } catch (err) {
-            runInAction(() => {
-                this.readingValues[index] = `Ошибка: ${err.message}`;
-            });
+            const decoder = new TextDecoder("utf-8");
+            return decoder.decode(value);
+        } catch (e) {
+            console.error("readCharacteristic error:", e);
+            return null;
         }
     }
 
-    async readAllCharacteristics() {
-        for (let i = 0; i < this.characteristics.length; i++) {
-            const char = this.characteristics[i];
-            if (char.properties.read) {
-                await this.readCharacteristic(char, i);
-            }
+    disconnect() {
+        if (this.device?.gatt?.connected) {
+            this.device.gatt.disconnect();
         }
-    }
-
-    clearError() {
-        this.error = null;
+        this.resetState();
     }
 }
 
