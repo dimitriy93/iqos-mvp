@@ -53,8 +53,10 @@ class BluetoothStore {
 
         try {
             const device = await navigator.bluetooth.requestDevice({
-                acceptAllDevices: true,
-                optionalServices: this.serviceUuids
+                filters: [
+                    { services: ['daebb240-b041-11e4-9e45-0002a5d5c51b'] }
+                ],
+                optionalServices: this.serviceUuids,
             });
 
             runInAction(() => {
@@ -67,22 +69,11 @@ class BluetoothStore {
             });
 
             const server = await device.gatt.connect();
+            const services = await server.getPrimaryServices();
 
-            for (const serviceUuid of this.serviceUuids) {
-                try {
-                    const service = await server.getPrimaryService(serviceUuid);
-
-                    const chars = await service.getCharacteristics();
-
-                    runInAction(() => {
-                        this.characteristics = [...this.characteristics, ...chars];
-                        this.isConnected = true;
-                        this.deviceInfo.connected = true;
-                    });
-
-                } catch (serviceError) {
-                    console.log(`Сервис ${serviceUuid} не найден:`, serviceError);
-                }
+            for (const service of services) {
+                const chars = await service.getCharacteristics();
+                this.characteristics.push(...chars);
             }
         } catch (error) {
             console.error('Ошибка подключения:', error);
@@ -113,19 +104,15 @@ class BluetoothStore {
 
     async readCharacteristic(characteristic, index) {
         if (!characteristic.properties.read) {
-            runInAction(() => {
-                this.readingValues[index] = 'Характеристика не поддерживает чтение';
-            });
+            this.readingValues[index] = 'Характеристика не поддерживает чтение';
             return;
         }
 
-        runInAction(() => {
-            this.readingValues[index] = 'Чтение...';
-        });
+        this.readingValues[index] = 'Чтение...';
 
         try {
             const value = await characteristic.readValue();
-            const decodedValue = this.decodeBuffer(value);
+            const decodedValue = this.decodeBuffer(value.buffer);
 
             runInAction(() => {
                 this.readingValues[index] = decodedValue;
@@ -133,9 +120,7 @@ class BluetoothStore {
 
         } catch (readError) {
             console.error(`Ошибка чтения характеристики ${index}:`, readError);
-            runInAction(() => {
-                this.readingValues[index] = `Ошибка чтения: ${readError.message}`;
-            });
+            this.readingValues[index] = `Ошибка чтения: ${readError.message}`;
         }
     }
 
