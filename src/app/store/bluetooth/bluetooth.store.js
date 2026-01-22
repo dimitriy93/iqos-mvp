@@ -1,89 +1,94 @@
-import { makeAutoObservable, runInAction } from "mobx";
+import {makeAutoObservable, runInAction} from "mobx";
 
 class BluetoothStore {
     device = null;
-    server = null;
-    service = null;
     characteristics = [];
-    permittedDevices = [];
-    isConnected = false;
+    deviceInfo = null;
     isLoading = false;
     error = null;
-    serviceUUID = "daebb240-b041-11e4-9e45-0002a5d5c51b";
+    readingValues = {};
+    isConnected = false;
+
+    serviceUuids = [
+        '58361e6d-e579-1df8-8997-50aa66a3add0',
+        '664578b6-c390-42d8-956e-c1ae8b646436',
+        'daebb240-b041-11e4-9e45-0002a5d5c51b'
+    ];
 
     constructor() {
         makeAutoObservable(this);
-
-        this.isBluetoothSupported = !!navigator.bluetooth;
     }
 
-    setError(message) {
-        this.error = message;
+    get isBluetoothSupported() {
+        return !!navigator.bluetooth;
     }
 
-    clearError() {
-        this.error = null;
-    }
-
-    resetState() {
-        this.device = null;
-        this.server = null;
-        this.service = null;
-        this.characteristics = [];
-        this.isConnected = false;
-    }
-
-    async loadPermittedDevices() {
-        if (!this.isBluetoothSupported) return;
-
+    decodeBuffer(buffer, encoding = 'utf-8') {
         try {
-            const devices = await navigator.bluetooth.getDevices();
-
-            runInAction(() => {
-                this.permittedDevices = devices;
-            });
-        } catch (e) {
-            console.error("getDevices error:", e);
+            if (!buffer || buffer.byteLength === 0) {
+                return 'Пустое значение';
+            }
+            return new TextDecoder(encoding).decode(buffer);
+        } catch (err) {
+            console.error('Ошибка декодирования:', err);
+            return `Ошибка декодирования: ${err.message}`;
         }
     }
 
-    async forgetDevice(deviceId) {
-        try {
-            const devices = await navigator.bluetooth.getDevices();
-            const device = devices.find(d => d.id === deviceId);
-
-            if (!device) return;
-
-            await device.forget();
-            await this.loadPermittedDevices();
-        } catch (e) {
-            console.error("forgetDevice error:", e);
-        }
-    }
-
-    async requestDevice() {
+    async connectDevice() {
         if (!this.isBluetoothSupported) {
-            this.setError("Web Bluetooth API не поддерживается");
+            runInAction(() => {
+                this.error = 'Web Bluetooth API не поддерживается вашим браузером';
+            });
             return;
         }
 
-        this.isLoading = true;
-        this.clearError();
+        runInAction(() => {
+            this.isLoading = true;
+            this.error = null;
+            this.characteristics = [];
+            this.deviceInfo = null;
+            this.readingValues = {};
+        });
 
         try {
             const device = await navigator.bluetooth.requestDevice({
                 acceptAllDevices: true,
-                optionalServices: [this.serviceUUID]
+                optionalServices: this.serviceUuids
             });
 
             runInAction(() => {
                 this.device = device;
+                this.deviceInfo = {
+                    id: device.id,
+                    name: device.name,
+                    connected: false
+                };
             });
 
-            await this.loadPermittedDevices();
-        } catch (e) {
+            const server = await device.gatt.connect();
+
+            for (const serviceUuid of this.serviceUuids) {
+                try {
+                    const service = await server.getPrimaryService(serviceUuid);
+
+                    const chars = await service.getCharacteristics();
+
+                    runInAction(() => {
+                        this.characteristics = [...this.characteristics, ...chars];
+                        this.isConnected = true;
+                        this.deviceInfo.connected = true;
+                    });
+
+                } catch (serviceError) {
+                    console.log(`Сервис ${serviceUuid} не найден:`, serviceError);
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка подключения:', error);
             runInAction(() => {
-                this.error = e.message;
+                this.error = `Ошибка подключения: ${error.message}`;
+                this.isConnected = false;
             });
         } finally {
             runInAction(() => {
@@ -92,64 +97,69 @@ class BluetoothStore {
         }
     }
 
-    async connect(device) {
-        if (!device) {
-            this.setError("Устройство не выбрано");
+    disconnectDevice() {
+        if (this.device && this.device.gatt.connected) {
+            this.device.gatt.disconnect();
+        }
+
+        runInAction(() => {
+            this.device = null;
+            this.characteristics = [];
+            this.deviceInfo = null;
+            this.isConnected = false;
+            this.readingValues = {};
+        });
+    }
+
+    async readCharacteristic(characteristic, index) {
+        if (!characteristic.properties.read) {
+            runInAction(() => {
+                this.readingValues[index] = 'Характеристика не поддерживает чтение';
+            });
             return;
         }
 
-        this.isLoading = true;
-        this.clearError();
-
-        try {
-            const server = await device.gatt.connect();
-            const service = await server.getPrimaryService(this.serviceUUID);
-            const characteristics = await service.getCharacteristics();
-
-            runInAction(() => {
-                this.device = device;
-                this.server = server;
-                this.service = service;
-                this.characteristics = characteristics;
-                this.isConnected = true;
-            });
-
-            device.addEventListener("gattserverdisconnected", () => {
-                runInAction(() => {
-                    this.resetState();
-                });
-            });
-        } catch (e) {
-            runInAction(() => {
-                this.error = e.message;
-            });
-        } finally {
-            runInAction(() => {
-                this.isLoading = false;
-            });
-        }
-    }
-
-    async readCharacteristic(characteristic) {
-        if (!characteristic || !characteristic.properties.read) {
-            return null;
-        }
+        runInAction(() => {
+            this.readingValues[index] = 'Чтение...';
+        });
 
         try {
             const value = await characteristic.readValue();
-            const decoder = new TextDecoder("utf-8");
-            return decoder.decode(value);
-        } catch (e) {
-            console.error("readCharacteristic error:", e);
-            return null;
+            const decodedValue = this.decodeBuffer(value);
+
+            runInAction(() => {
+                this.readingValues[index] = decodedValue;
+            });
+
+        } catch (readError) {
+            console.error(`Ошибка чтения характеристики ${index}:`, readError);
+            runInAction(() => {
+                this.readingValues[index] = `Ошибка чтения: ${readError.message}`;
+            });
         }
     }
 
-    disconnect() {
-        if (this.device?.gatt?.connected) {
-            this.device.gatt.disconnect();
+    async readAllCharacteristics() {
+        runInAction(() => {
+            this.characteristics.forEach((char, index) => {
+                if (char.properties.read) {
+                    this.readingValues[index] = 'Чтение...';
+                } else {
+                    this.readingValues[index] = 'Не поддерживает чтение';
+                }
+            });
+        });
+
+        for (let i = 0; i < this.characteristics.length; i++) {
+            const char = this.characteristics[i];
+            if (char.properties.read) {
+                await this.readCharacteristic(char, i);
+            }
         }
-        this.resetState();
+    }
+
+    clearError() {
+        this.error = null;
     }
 }
 
