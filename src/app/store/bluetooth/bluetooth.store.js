@@ -54,7 +54,7 @@ class BluetoothStore {
         try {
             const device = await navigator.bluetooth.requestDevice({
                 acceptAllDevices: true,
-                optionalServices: this.serviceUuids
+                optionalServices : this.serviceUuids
             });
 
             runInAction(() => {
@@ -71,8 +71,10 @@ class BluetoothStore {
             for (const serviceUuid of this.serviceUuids) {
                 try {
                     const service = await server.getPrimaryService(serviceUuid);
+                    console.log("service === ", service)
 
                     const chars = await service.getCharacteristics();
+                    console.log("chars === ", chars)
 
                     runInAction(() => {
                         this.characteristics = [...this.characteristics, ...chars];
@@ -111,6 +113,26 @@ class BluetoothStore {
         });
     }
 
+    async ensureConnected() {
+        if(!this.device.gatt.connected) {
+            runInAction(() => {
+                this.isConnected = false;
+            })
+            try {
+                console.log("Переподключение ...")
+                console.log("device === ", this.device);
+                await this.device.gatt.connect();
+                runInAction(() => {
+                    this.isConnected = true;
+                })
+            } catch (error) {
+                console.error(`Ошибка переподключения: ${error.message}`)
+            }
+        }
+        console.log("Переподключение не требуется")
+        console.log("device === ", this.device);
+    }
+
     async readCharacteristic(characteristic, index) {
         if (!characteristic.properties.read) {
             runInAction(() => {
@@ -124,6 +146,7 @@ class BluetoothStore {
         });
 
         try {
+            await this.ensureConnected()
             const value = await characteristic.readValue();
             const decodedValue = this.decodeBuffer(value);
 
@@ -153,6 +176,7 @@ class BluetoothStore {
         for (let i = 0; i < this.characteristics.length; i++) {
             const char = this.characteristics[i];
             if (char.properties.read) {
+                await this.ensureConnected()
                 await this.readCharacteristic(char, i);
             }
         }
